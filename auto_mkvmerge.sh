@@ -3,8 +3,8 @@
 #─────────────────────────────────── user settings ───────────────────────────────────#
 #─────────────────────────────────────────────────────────────────────────────────────#
 # pathes
-input_folder=""
-output_folder=""
+input_folder=$1
+output_folder=$2
 jsonfile_path="./template.json"
 #─────────────────────────────────────────────────────────────────────────────────────#
 # determine what to do if the video files have different audio and subtitle tracks
@@ -71,11 +71,6 @@ NC='\033[0m' # No Color
 
 # Main Function
 main() {
-
-    # get the user variables of the ini file
-    if [ "$overwrite_with_settings_ini" = "on" ]; then
-        get_user_variables_from_ini_file
-    fi
 
     # convert relativ to absolut pathes
     jsonfile_path=$(relativ_to_fullpath "$jsonfile_path")

@@ -4,6 +4,8 @@
   let output = '';
   let running = false;
 
+  let controller: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
   async function startMerge() {
     output = '';
     running = true;
@@ -14,10 +16,12 @@
       body: JSON.stringify({ folder1: folderPath1, folder2: folderPath2 })
     });
 
-    const reader = res.body?.getReader();
-    if (!reader) return;
+    if (!res.body) return;
 
+    const reader = res.body.getReader();
+    controller = reader;
     const decoder = new TextDecoder();
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -25,42 +29,64 @@
     }
 
     running = false;
+    controller = null;
+  }
+
+  async function cancelMerge() {
+    running = false;
+    if (controller) {
+      // abort reading the stream
+      controller.cancel();
+      controller = null;
+    }
+
+    await fetch('/api/start-merge', { method: 'DELETE' });
+    output += '\n--- Merge canceled by user ---\n';
   }
 </script>
 
 <div class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-  <div class="bg-white shadow-lg rounded-lg p-8 w-full max-w-lg flex flex-col gap-6">
-    <h1 class="text-2xl font-bold text-gray-800">Merge Folders</h1>
+  <div class="bg-white shadow-lg rounded-lg p-8 w-full max-w-4xl flex flex-col gap-4">
+    <h1 class="text-3xl font-bold text-gray-800 mb-4 text-center">Auto MKV Merge</h1>
 
-    <!-- Folder Inputs -->
-    <input
-      type="text"
-      placeholder="Input path"
-      bind:value={folderPath1}
-      class="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-    />
-    <input
-      type="text"
-      placeholder="Output path"
-      bind:value={folderPath2}
-      class="w-full border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-    />
+    <!-- Input Folder -->
+    <div class="flex flex-col gap-1">
+      <label class="text-gray-600 font-medium">Input Folder</label>
+      <input
+        type="text"
+        placeholder="/path/to/input"
+        bind:value={folderPath1}
+        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
+      />
+    </div>
 
-    <!-- Start Merge Button -->
-    <button
-      on:click={startMerge}
-      class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow"
-      disabled={running}
-    >
+    <!-- Output Folder -->
+    <div class="flex flex-col gap-1 mt-2">
+      <label class="text-gray-600 font-medium">Output Folder</label>
+      <input
+        type="text"
+        placeholder="/path/to/output"
+        bind:value={folderPath2}
+        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
+      />
+    </div>
+
+  <div class="flex gap-2">
+    <button on:click={startMerge} disabled={running} class="bg-blue-500 text-white px-4 py-2 rounded">
       {running ? 'Merging...' : 'Start Merge'}
     </button>
+    {#if running}
+      <button on:click={cancelMerge} class="bg-red-500 text-white px-4 py-2 rounded">
+        Cancel
+      </button>
+    {/if}
+  </div>
 
-    <!-- Live Output -->
-    <textarea
-      readonly
-      rows="12"
-      class="w-full border border-gray-300 rounded p-2 bg-gray-100 text-sm font-mono resize-none overflow-y-auto"
-      bind:value={output}
-    ></textarea>
+  <textarea
+    readonly
+    rows="15"
+    bind:value={output}
+    class="w-full border p-2 rounded font-mono bg-gray-100 resize-none overflow-y-auto"
+  ></textarea>
   </div>
 </div>
